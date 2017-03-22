@@ -1,0 +1,3 @@
+entity_importer_homepage:
+    path:     /admin/AD/Importer/{entityClass}
+    defaults: { _controller: EntityImporterBundle:Default:import }
