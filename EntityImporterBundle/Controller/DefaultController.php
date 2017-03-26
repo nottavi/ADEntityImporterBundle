@@ -9,6 +9,7 @@ use Ddeboer\DataImport\Reader\CsvReader;
 use Ddeboer\DataImport\Writer\DoctrineWriter;
 use Ddeboer\DataImport\Workflow\StepAggregator;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\DBAL\Exception\NotNullConstraintViolationException;
 
 class DefaultController extends Controller
 {
@@ -25,9 +26,16 @@ class DefaultController extends Controller
                 $fileName = $this->moveUploadedFile($uploadedFile);
 
                 echo "Starting to Import ".$fileName."<br />n";
-                $this->importCSV($entityClass, $fileName);
-
-                $request->getSession()->getFlashBag()->add('success', 'The import was successful');
+                $flashBag = $request->getSession()->getFlashBag();
+                $result = $this->importCSV($entityClass, $fileName);
+                if($result === -1){
+                    $flashBag->add('error', 'The import could not be done because the file does not seem to match the entity, please check it');
+                }else if(is_array($result)){
+                    foreach ($result as $lineNumber => $values) {
+                        $flashBag->add('warning', 'Error on line ' .$lineNumber. ', please check your csv file');
+                    }
+                    $flashBag->add('success', 'The import was successful');
+                }
             }
 
         }
@@ -90,6 +98,13 @@ class DefaultController extends Controller
             $workflow->addStep($step);
         }
 
-        $workflow->process();
+        try{
+            $workflow->process();
+        }catch( NotNullConstraintViolationException $e){
+            return -1;
+        }
+
+
+        return $csvReader->getErrors();
     }
 }
